@@ -183,6 +183,14 @@ for _ in tqdm(out_files_tddft):
     if tddft_result_dict['has_failed']:
         continue
 
+    has_negative_f = False
+    for i in range(1, 31, 1):
+        if tddft_result_dict['f_' + str(i)] < 0:
+            has_negative_f = True
+            break
+    if has_negative_f:
+        continue
+
     if tddft_result_dict['lambda_max_vis'] is not None:
         nto_result_dict = NtoDataParser(data_dir + _.replace('.out', '-vis.out')).parse()
 
@@ -191,8 +199,8 @@ for _ in tqdm(out_files_tddft):
 
         #print(nto_result_dict['occupied_nto'][0]['ntos'])
 
-        occupied_origin = get_nto_origin(nto_result_dict['occupied_nto'], 0.22)
-        virtual_origin = get_nto_origin(nto_result_dict['virtual_nto'], 0.12)
+        occupied_origin = get_nto_origin(nto_result_dict['occupied_nto'], 0.2)
+        virtual_origin = get_nto_origin(nto_result_dict['virtual_nto'], 0.2)
 
         occupied_origin_ratio = get_nto_origin_metal_ligand_ratios(nto_result_dict['occupied_nto'])
         virtual_origin_ratio = get_nto_origin_metal_ligand_ratios(nto_result_dict['virtual_nto'])

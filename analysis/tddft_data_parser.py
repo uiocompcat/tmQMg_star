@@ -1,3 +1,12 @@
+import re
+
+
+transition_metal_identifiers = [
+    'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
+    'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd',
+    'La', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg'
+]
+
 class TddftDataParser():
 
     """Parser class for TD-DFT output files."""
@@ -21,6 +30,10 @@ class TddftDataParser():
             return return_dict
         else:
             return_dict['has_failed'] = False
+
+        return_dict['homo_lumo_gap'] = self._parse_homo_lumo_gap()
+        return_dict['dipole_moment'] = self._parse_dipole_moment()
+        return_dict['metal_charge'] = self._parse_metal_charge()
 
         spec = self._parse_spectrum()
         for i in range(len(spec[0])):
@@ -61,7 +74,7 @@ class TddftDataParser():
 
     def _parse_spectrum(self):
 
-        """Parses the spectrum from the outputfile.
+        """Parses the spectrum from the output file.
 
         Returns:
             list[list[float]]: The parsed spectrum.
@@ -77,6 +90,64 @@ class TddftDataParser():
         spec = [nms, os]
 
         return spec
+
+    def _parse_metal_charge(self):
+
+        """ Parses the metal charge the output file.
+
+        Returns:
+            float: The metal charge.
+        """
+
+        for i, line in enumerate(self.lines):
+
+            if 'Mulliken charges:' in line:
+
+                j = i + 1
+                while len(self.lines[j+1].split()) == 3:
+
+                    j += 1
+                    line_split = self.lines[j].split()
+                    if line_split[1] in transition_metal_identifiers:
+                        return float(line_split[2])
+
+        print('No metal found.')
+
+    def _parse_homo_lumo_gap(self):
+
+        """ Parses the HOMO-LUMO gap from the output file.
+
+        Returns:
+            float: The HOMO-LUMO gap.
+        """
+
+        occ = []
+        vir = []
+        for i, line in enumerate(self.lines):
+
+            if 'Alpha  occ. eigenvalues' in line:
+                line_split = re.findall('-{0,1}[0-9]{1,}.[0-9]{1,}', line)
+                occ.extend([float(entry) for entry in line_split])
+
+            if 'Alpha virt. eigenvalues' in line:
+                line_split = re.findall('-{0,1}[0-9]{1,}.[0-9]{1,}', line)
+                vir.extend([float(entry) for entry in line_split])
+
+        return vir[0] - occ[-1]
+
+    def _parse_dipole_moment(self):
+
+        """ Parses the dipole moment from the output file.
+
+        Returns:
+            float: The dipole moment.
+        """
+
+        for i, line in enumerate(self.lines):
+
+            if 'Dipole moment (field-independent basis, Debye)' in line:
+                line_split = self.lines[i + 1].split()
+                return float(line_split[7])
 
     def _split_spectrum_into_uv_vis_nir(self, spec: list):
 
