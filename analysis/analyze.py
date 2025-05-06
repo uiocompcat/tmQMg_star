@@ -113,13 +113,13 @@ def get_metal_ligand_occupations(nto_data: list[dict[dict]], normalize_by_atoms:
 
     for atom in nto_data:
 
-        average_absolute_occupations = get_average_absolute_occupations(atom['ntos'])
+        coefficient_sums = get_sums_of_squared_coefficients(atom['ntos'])
 
         if is_metal(atom):
-            metal_occupations = average_absolute_occupations
+            metal_occupations = coefficient_sums
         else:
-            for i, _ in enumerate(average_absolute_occupations):
-                ligand_occupations[i] += average_absolute_occupations[i]
+            for i, _ in enumerate(coefficient_sums):
+                ligand_occupations[i] += coefficient_sums[i]
 
     # normalize by number of ligand atoms
     if normalize_by_atoms:
@@ -128,40 +128,44 @@ def get_metal_ligand_occupations(nto_data: list[dict[dict]], normalize_by_atoms:
 
     return metal_occupations, ligand_occupations
 
-def get_average_absolute_occupations(ntos: dict[dict]):
+def get_sums_of_squared_coefficients(ntos: dict[dict], n: int = 1, weight_by_occupation: bool = False):
 
-    """Gets the average absolute NTO orbital occupations.
+    """Gets the sums of squared coefficients of the n NTOs with highest occupations of a single atom.
 
     Arguments:
         ntos (dict[dict]): The NTO data.
+        n (int): The number of NTOs with highest occupations to consider.
+        weight_by_occupation (bool): Flag to denote whether to weight the coefficient sums by the occupation eigenvalue.
 
     Returns:
-        list[float]: The absolute averages.
+        list[float]: The sum.
     """
 
-    absolute_averages = []
+    sums = []
+    for _ in sorted(ntos.keys(), reverse=True)[:n]:
 
-    #for _ in ntos.keys():
-    for _ in [max(ntos.keys())]:
-        absolute_averages.append(_ * get_average_absolute_occupation(ntos[_]))
+        if weight_by_occupation:
+            sums.append(_ * get_sum_of_squared_coefficients(ntos[_]))
+        else:
+            sums.append(get_sum_of_squared_coefficients(ntos[_]))
 
-    return absolute_averages
+    return sums
 
-def get_average_absolute_occupation(nto: dict, normalize_by_orbitals: bool=False):
+def get_sum_of_squared_coefficients(nto: dict, normalize_by_orbitals: bool=False):
 
-    """Gets the average absolute orbital occupation of a single NTO.
+    """Gets the sum of squared coefficients of an NTO of a single atom.
 
     Arguments:
-        nto (dict): The NTO data.
+        nto (dict): The NTO data of the atom.
         normalize_by_orbitals (bool): Flag to denote whether to normalize by the number of orbitals.
 
     Returns:
-        float: The absolute sum.
+        float: The sum of squared NTO coefficients.
     """
 
     absolute_sum = 0
     for _ in nto.keys():
-        absolute_sum += np.abs(nto[_])
+        absolute_sum += np.power(nto[_], 2)
 
     # normalize by number of orbitals
     if normalize_by_orbitals:
@@ -197,10 +201,8 @@ for _ in tqdm(out_files_tddft):
         if nto_result_dict['has_failed']:
             continue
 
-        #print(nto_result_dict['occupied_nto'][0]['ntos'])
-
-        occupied_origin = get_nto_origin(nto_result_dict['occupied_nto'], 0.2)
-        virtual_origin = get_nto_origin(nto_result_dict['virtual_nto'], 0.2)
+        occupied_origin = get_nto_origin(nto_result_dict['occupied_nto'], 0.5)
+        virtual_origin = get_nto_origin(nto_result_dict['virtual_nto'], 0.5)
 
         occupied_origin_ratio = get_nto_origin_metal_ligand_ratios(nto_result_dict['occupied_nto'])
         virtual_origin_ratio = get_nto_origin_metal_ligand_ratios(nto_result_dict['virtual_nto'])
